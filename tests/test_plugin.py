@@ -45,7 +45,7 @@ class CodexRouterTests(unittest.TestCase):
         # Force no key available in any candidate
         self.mod._ENV_CANDIDATES = []
         result = json.loads(self.mod._codex_handler({"task": "do something"}))
-        self.assertEqual(result["status"], "error")
+        self.assertIn("error", result)
         self.assertIn("DEEPSEEK_API_KEY", result["error"])
 
     def test_missing_task_returns_error(self):

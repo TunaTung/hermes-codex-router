@@ -1,0 +1,21 @@
+# codex-plus-hermes-team team.yaml — template (desensitized)
+# Docs: https://github.com/AlekseiUL/codex-plus-hermes-team
+
+hermes:
+  command: "<abs-path-to-hermes.exe-or-cmd>"   # Windows: absolute path; hermes often NOT on PATH
+  defaultCwd: "<your-project-root>"
+  timeoutSeconds: 120
+
+discovery:
+  enabled: true
+  profilePrefix: ""
+
+safety:
+  defaultSideEffectPolicy: advice_only    # specialists advise; they do not mutate files
+
+agents:
+  - profile: default
+    displayName: MainHermes
+    role: generalist-orchestrator
+    description: Main Hermes profile. Memory, decisions, orchestration, cross-session context.
+    capabilities: [orchestration, memory, research, review, planning]

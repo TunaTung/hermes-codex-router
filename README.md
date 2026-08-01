@@ -2,7 +2,7 @@
 
 # 🌉 Hermes Codex Router
 
-**Give Codex CLI first-class citizenship inside Hermes Agent — wired to DeepSeek V4 Flash via the official Responses API.**
+**The complete Hermes ↔ Codex integration bundle — Codex as a first-class Hermes tool, DeepSeek V4 Flash on the native Responses API, with bidirectional consult and cross-session context.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-2e5a46)](#)
@@ -15,40 +15,55 @@
 
 ## Table of Contents
 
-- [What this does](#what-this-does)
+- [What this is](#what-this-is)
 - [Quick Start](#quick-start)
+- [Repository layout](#repository-layout)
 - [Usage](#usage)
 - [Configuration](#configuration)
-- [How it fits the ecosystem](#how-it-fits-the-ecosystem)
 - [Troubleshooting](#troubleshooting)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ---
 
-## What this does
+## What this is
 
-Hermes Agent is your main brain — memory, persona, orchestration. Coding CLIs like Codex are the hands. This plugin makes the hand a **native Hermes tool**, the same way `opencode` already is:
+This is **not just a plugin** — it is the assembled, tested recipe for the full
+Hermes ↔ Codex closed loop:
 
-```text
+1. **Hermes thinks** over DeepSeek's native Responses API (`deepseek-responses` provider, 1M context)
+2. **Hermes dispatches** to Codex through the `codex` tool (this repo's plugin)
+3. **Codex executes** with DeepSeek's official Codex adaptation (apply_patch, effort levels, multi-agent v2)
+4. **Codex consults Hermes back** via codex-plus-hermes-team MCP (`hermes_team_ask_agent`)
+5. **Context survives sessions** via Athena recall & session summaries
+
+```
 You
   └─> Hermes (main brain: memory, persona, orchestration)
-        └─> codex tool  ← this plugin
-              └─> Codex CLI 0.146+ (custom provider: DeepSeek official Responses API)
-                    └─> api.deepseek.com/v1/responses
+        ├─> deepseek-responses provider ── api.deepseek.com/v1/responses   (main loop)
+        ├─> codex tool (this repo) ── Codex CLI 0.146+ ── DeepSeek official
+        └─> Athena MCP bridge ── recall / sessions / memory (29 tools)
+              ▲
+              └─ codex-plus-hermes-team MCP ── Codex asks Hermes back
 ```
 
-**Why Codex + DeepSeek specifically?**
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the four-layer diagram and
+[INTEGRATION.md](INTEGRATION.md) for the step-by-step assembly guide
+(every step verified on Windows 11).
 
-- DeepSeek officially adapted V4 Flash for Codex: native Responses API, full `models.json` metadata (1M context, reasoning effort levels, multi-agent v2), one-click setup scripts. No other agent CLI gets this depth of adaptation.
+**Why this combination?**
+
+- DeepSeek officially adapted V4 Flash for Codex (native Responses API, full
+  `models.json` metadata, one-click setup) — no other agent CLI gets this depth.
 - `api.deepseek.com` is reachable directly from China — **no VPN required**.
-- Your API key never touches disk in this plugin: it is injected from env / Hermes `.env` at call time.
+- Your API keys never touch disk: everything reads from env / Hermes `.env`.
 
 ---
 
 ## Quick Start
 
-> Full setup takes about 2 minutes if Codex CLI and DeepSeek are already configured.
+> Full stack takes ~10 minutes following [INTEGRATION.md](INTEGRATION.md).
+> Plugin-only is ~2 minutes if Codex + DeepSeek are already configured.
 
 ```bash
 # 1. Install the plugin into Hermes
@@ -69,6 +84,26 @@ Restart Hermes. You now have a `codex` tool.
 > Use the codex tool to create a hello.py in a git repo and run it.
 
 Expected: Hermes calls `codex`, Codex writes the file, runs it, and reports the real output.
+
+For the full stack (native Responses API main loop + reverse consult + recall),
+follow [INTEGRATION.md](INTEGRATION.md) — it's the exact tested path.
+
+---
+
+## Repository layout
+
+```text
+hermes-codex-router/
+├── __init__.py                 # the plugin: `codex` tool + guidance + delegate injection
+├── README.md                   # you are here
+├── ARCHITECTURE.md             # four-layer closed-loop diagram
+├── INTEGRATION.md              # step-by-step assembly (verified on Windows 11)
+├── config/
+│   ├── hermes-config.example.yaml   # deepseek-responses provider + Athena MCP blocks
+│   ├── codex-config.example.toml    # ~/.codex/config.toml blocks (deepseek/zen/hermes-team)
+│   └── team.example.yaml            # codex-plus-hermes-team team.yaml template
+└── LICENSE
+```
 
 ---
 
@@ -126,20 +161,9 @@ All optional. Defaults work for the common Hermes layout.
 
 **Key lookup order:** `DEEPSEEK_API_KEY` env var → `$HERMES_HOME/.env` → `~/.hermes/.env` → `<cwd>/.env`.
 
-**delegate_task integration:** for coding goals, the plugin auto-injects Codex execution instructions into subagent context (marked with `codex-injected` to avoid double injection).
-
----
-
-## How it fits the ecosystem
-
-| Layer | Project | Role | Status |
-|---|---|---|---|
-| Execution tool | **this plugin** | Codex as a native Hermes tool | ✅ you are here |
-| Reverse consult | [codex-plus-hermes-team](https://github.com/AlekseiUL/codex-plus-hermes-team) | Codex asks Hermes profiles (ask/panel/kanban) via MCP | complementary |
-| Workspace orchestration | [Athena](https://github.com/luckeyfaraday/Athena) | Hermes MCP bridge: recall, sessions, spawn (29 tools) | complementary |
-| Dispatch protocol | [hermes-code-bridge](https://github.com/xuyang-liu16/hermes-code-bridge) | Hermes as control plane: session-first routing, evidence ladder | complementary |
-
-Together: **Hermes dispatches → Codex executes → Codex can consult Hermes back → context survives across sessions.**
+**delegate_task integration:** for coding goals, the plugin auto-injects Codex
+execution instructions into subagent context (marked with `codex-injected` to
+avoid double injection).
 
 ---
 
@@ -152,18 +176,22 @@ Together: **Hermes dispatches → Codex executes → Codex can consult Hermes ba
 | Tool reports "codex CLI 未找到" | `CODEX_BIN` not set and Codex not on PATH | Set `CODEX_BIN` to your `codex.cmd`/`codex` path, or add Codex to PATH |
 | Tool reports "缺少 DEEPSEEK_API_KEY" | Key not in env, Hermes `.env`, or `HERMES_ENV_FILE` | Export the key or add it to one of the `.env` candidates |
 | Plugin loads but `codex` tool missing from the toolset | Hermes hasn't reloaded plugins | Restart the Hermes session |
+| Athena MCP bridge returns 502 to backend | System proxy (Clash/v2rayN) hijacks localhost via httpx | Set `NO_PROXY=127.0.0.1,localhost` in the MCP server env |
+| Athena backend: `ModuleNotFoundError: backend` | Running `backend/launcher.py` directly | Use `python -m backend.launcher` from the repo root |
+
+More traps (Windows build, npm registry, MSYS paths) in [INTEGRATION.md](INTEGRATION.md).
 
 ---
 
 ## Acknowledgements
 
-This plugin is a thin, parameterized fork of patterns from:
+The plugin is a thin, parameterized fork of patterns from; the bundle relies on:
 
 - [deepseek-router](https://github.com/NousResearch/hermes-agent) — in-repo plugin pattern (`register_tool` + `pre_session_init` + `pre_tool_call` hooks)
 - [hermes-code-bridge](https://github.com/xuyang-liu16/hermes-code-bridge) — Hermes-as-control-plane dispatch protocols
 - [Athena](https://github.com/luckeyfaraday/Athena) — workspace orchestration, Hermes MCP bridge, recall
 - [codex-plus-hermes-team](https://github.com/AlekseiUL/codex-plus-hermes-team) — Codex consulting Hermes via MCP
-- [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) — the platform this plugin extends
+- [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) — the platform this extends
 - DeepSeek official Codex integration (models.json, setup scripts)
 
 ---

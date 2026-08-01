@@ -1,0 +1,34 @@
+# Hermes config.yaml — integration templates (desensitized)
+# Merge the blocks below into your Hermes config.yaml.
+# Replace <...> placeholders. No secrets included — keys stay in env / .env.
+
+# ── Layer 2: deepseek-responses provider (native Responses API main loop) ──
+
+providers:
+  deepseek-responses:
+    name: DeepSeek Responses
+    base_url: https://api.deepseek.com/
+    api_mode: codex_responses
+    key_env: DEEPSEEK_API_KEY
+    context_length: 1048576
+    default_model: deepseek-v4-flash
+
+model:
+  aliases:
+    ds-resp: deepseek-responses/deepseek-v4-flash   # switch with /model ds-resp
+
+# ── Layer 4: Athena MCP bridge ──
+
+mcp_servers:
+  context_workspace:
+    command: "<your-python>"          # Python with `mcp` installed (e.g. Hermes venv)
+    args: ["<abs-path>/Athena/mcp_server/server.py"]
+    timeout: 120
+    connect_timeout: 30
+    env:
+      CONTEXT_WORKSPACE_BACKEND_STATE: "<home>/.context-workspace/backend.json"
+      CONTEXT_WORKSPACE_BACKEND_URL: "http://127.0.0.1:8390"
+      NO_PROXY: "127.0.0.1,localhost"   # required when a system proxy (Clash) is active
+
+# Athena backend must run first:
+#   cd Athena && python -m backend.launcher --host 127.0.0.1 --port 8390

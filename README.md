@@ -181,6 +181,12 @@ avoid double injection).
 
 More traps (Windows build, npm registry, MSYS paths) in [INTEGRATION.md](INTEGRATION.md).
 
+> ⚠️ **Third-party license note**: this repo is MIT and contains no third-party
+> source code. It only links to and configures upstream projects. Upstream
+> licenses: hermes-agent / hermes-code-bridge / codex-plus-hermes-team are MIT.
+> **Athena declares no license** (no LICENSE file as of 2026-08) — check its repo
+> before depending on it for your own project.
+
 ---
 
 ## Acknowledgements

@@ -95,6 +95,7 @@ Hermes back (layer 3a) → context survives sessions (layer 4).
 - [Quick Start](#quick-start)
 - [Repository layout](#repository-layout)
 - [Usage](#usage)
+- [Orchestration rules](#orchestration-rules)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Acknowledgements](#acknowledgements)
@@ -218,6 +219,16 @@ codex(task="Scaffold a minimal FastAPI app", verify=false, directory="/tmp/scrat
 ```
 
 `status` is based on the real exit code — this plugin never fabricates results.
+
+---
+
+## Orchestration rules
+
+Codex is the **primary coding executor** — Hermes dispatches coding work to
+Codex instead of doing it inline. Three constraints + one boundary (inline
+one-line edits are allowed; everything else goes to Codex) are codified in
+[AGENTS.md](AGENTS.md) and enforced by the plugin's session guidance and
+delegate injection.
 
 ---
 

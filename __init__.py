@@ -316,6 +316,8 @@ _CODEX_CONTEXT_INJECTION = """
 编码任务用 Codex CLI（DeepSeek 官方 API，key 已注入环境）：
   codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox '<任务>'
 执行后用 git diff 验证改动，跑测试确认通过，报告真实输出。
+任务为多步/较大时：自行拆解实现路径，先列执行计划再动手（可拆分子代理并行）；
+目标、边界、验收标准以任务描述为准，描述未写到的实现细节自行决策。
 """
 
 _CODING_KEYWORDS = [

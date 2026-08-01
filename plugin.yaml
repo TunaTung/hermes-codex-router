@@ -1,0 +1,6 @@
+manifest_version: 1
+name: hermes-codex-router
+version: "0.1.0"
+description: "Make Codex CLI a first-class tool inside Hermes Agent — wired to DeepSeek V4 Flash via the official Responses API adapter."
+author: "TunaTung"
+kind: tool

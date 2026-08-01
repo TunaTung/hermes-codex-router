@@ -32,3 +32,14 @@ hermes-codex-loop 让 Codex CLI 成为 Hermes Agent 的一等公民工具——�
 - 编码任务后：检查 git diff 与测试输出，不轻信自报告
 - CI：`python -m unittest discover -s tests -v`
 - 环境体检：`bash scripts/check-setup.sh`（✅ 全绿再动手，❌ 缺什么一目了然）
+
+## Codex 反问 Hermes（反向咨询开关）
+
+Codex 编码过程中拿不准项目约定 / 用户偏好 / 历史决策时，可反问 Hermes
+获取上下文。规则全文在 `~/.codex/AGENTS.md`（codex 全局加载）；核心：
+
+- **方式**：curl `POST http://127.0.0.1:8390/hermes/ask`，body
+  `{"project_dir": "<cwd>", "question": "...", "timeout_seconds": 40}`，
+  加 `--noproxy "*"`；Windows 引号转义用 `--data-binary "@文件"` 传
+- **回答**：取响应 `answer` 字段原样使用
+- **边界**：信息缺失且影响决策才问；失败不卡任务，按最佳判断继续

@@ -128,6 +128,10 @@ Verify: `codex exec "list your MCP tools"` should show `hermes_team_*`.
 git clone https://github.com/luckeyfaraday/Athena.git
 cd Athena
 # backend (headless, no Electron needed for Hermes coordination):
+# Windows: PATH must include hermes.exe's dir or /hermes/ask fails with WinError 2
+PATH="/path/to/hermes-agent/.venv/Scripts:$PATH" \
+  python -m backend.launcher --host 127.0.0.1 --port 8390
+# macOS/Linux:
 python -m backend.launcher --host 127.0.0.1 --port 8390
 ```
 
@@ -151,6 +155,18 @@ mcp_servers:
 - With Clash/v2rayN system proxy enabled, the MCP bridge returns 502 to the
   backend unless `NO_PROXY=127.0.0.1,localhost` is set (httpx honors WinINET
   system proxy).
+- `/hermes/ask` 503 `WinError 2`: the backend spawns `hermes` via
+  `shutil.which("hermes")` — on Windows that fails unless hermes.exe's dir is
+  on the backend process PATH. Fix: prefix PATH when launching (see above).
+  Tracked upstream: luckeyfaraday/Athena#200.
+
+**Reverse consult paths (Codex → Hermes)** — three options, ordered:
+1. `hermes_team_ask_agent` MCP tool — **works in Codex interactive (TUI)
+   sessions only**; `codex exec` has an upstream bug that silently drops MCP
+   tools (openai/codex#16685, #29857). Codex auto-falls back to the next path.
+2. Athena `/hermes/ask` — works headless (fixed by the PATH prefix above).
+3. Hermes CLI direct (`hermes chat -q`-style oneshot) — always works, no
+   dependencies.
 
 Verify: `hermes chat -q "list context_workspace tools"` → 29 tools, or call
 `context_workspace_health`.

@@ -261,6 +261,7 @@ avoid double injection).
 | Plugin loads but `codex` tool missing from the toolset | Hermes hasn't reloaded plugins | Restart the Hermes session |
 | Athena MCP bridge returns 502 to backend | System proxy (Clash/v2rayN) hijacks localhost via httpx | Set `NO_PROXY=127.0.0.1,localhost` in the MCP server env |
 | Athena backend: `ModuleNotFoundError: backend` | Running `backend/launcher.py` directly | Use `python -m backend.launcher` from the repo root |
+| Athena `/hermes/ask` → 503 `WinError 2` | backend can't find `hermes` on its process PATH (Windows) | Prefix PATH with hermes.exe's dir when launching backend — see INTEGRATION.md |
 
 More traps (Windows build, npm registry, MSYS paths) in [INTEGRATION.md](INTEGRATION.md).
 

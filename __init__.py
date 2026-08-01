@@ -289,7 +289,11 @@ def _pre_tool_call_hook(tool_name: str, args: dict, **kwargs):
 
 
 def register(ctx):
-    """Hermes 插件入口。"""
+    """Hermes 插件入口。
+
+    Hermes 0.19: 引导规则（codex 首选）由 skill codex-primary-execution 承载
+    （pre_session_init hook 已在 0.19 移除；skill 是官方跨项目引导机制）。
+    """
     ctx.register_tool(
         name="codex",
         toolset="codex",
@@ -297,9 +301,8 @@ def register(ctx):
         handler=_codex_handler,
         check_fn=lambda: bool(_find_codex() and _get_api_key()),
         requires_env=[],
-        description="Codex 编码工具（备选执行体）— DeepSeek V4 Flash 官方 Responses API 适配",
+        description="Codex 编码工具（首选执行体）— DeepSeek V4 Flash 官方 Responses API 适配",
         emoji="🐙",
     )
-    ctx.register_hook("pre_session_init", _inject_session_guidance)
     ctx.register_hook("pre_tool_call", _pre_tool_call_hook)
-    logger.info("codex-router loaded (tool + guidance + context injection)")
+    logger.info("codex-router loaded (tool + context injection)")

@@ -120,8 +120,10 @@ silently not install. Build with a pinned npx instead:
 npx -y -p typescript@5.8.3 tsc -p tsconfig.json
 ```
 
-Verify the MCP server is configured correctly (do NOT test via `codex exec` —
-`codex exec` silently drops MCP tools, see the upstream-bug note below):
+Verify the MCP server is configured correctly. Note: if you used the DeepSeek
+official one-click setup, first fix models.json (`supports_search_tool: false`
+for deepseek models — otherwise exec-mode MCP tools are silently hidden,
+openai/codex#36382; `check-setup.sh [7/7]` verifies):
 
 ```bash
 # 1. Config present?
@@ -176,13 +178,14 @@ mcp_servers:
   on the backend process PATH. Fix: prefix PATH when launching (see above).
   Tracked upstream: luckeyfaraday/Athena#200.
 
-**Reverse consult paths (Codex → Hermes)** — three options, ordered:
-1. `hermes_team_ask_agent` MCP tool — **works in Codex interactive (TUI)
-   sessions only**; `codex exec` has an upstream bug that silently drops MCP
-   tools (openai/codex#16685, #29857). Codex auto-falls back to the next path.
-2. Athena `/hermes/ask` — works headless (fixed by the PATH prefix above).
-3. Hermes CLI direct (`hermes chat -q`-style oneshot) — always works, no
-   dependencies.
+**Reverse consult paths (Codex → Hermes)** — two verified channels:
+1. `hermes_team_ask_agent` MCP tool — works in **both interactive and exec
+   modes** once models.json is fixed (`supports_search_tool: false` for
+   deepseek models — openai/codex#36382) and `startup_timeout_sec` is set for
+   the hermes-team server. Auto-resumes the live Hermes session (read-only).
+2. Athena `/hermes/ask` — HTTP fallback, any caller; also auto-resumes the
+   live session (or explicit `session_id`). Works headless.
+(Hermes CLI direct oneshot is always available as a last resort.)
 
 Verify: `hermes chat -q "list context_workspace tools"` → 29 tools, or call
 `context_workspace_health`.

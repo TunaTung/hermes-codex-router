@@ -140,6 +140,7 @@ bash scripts/check-setup.sh   # ✅ all green → proceed; ❌ tells you exactly
 
 ```bash
 # 1. Install the plugin into Hermes
+# (ZIP downloads extract to <repo>-main/ — rename or adjust the path)
 cp -r hermes-codex-loop /path/to/hermes/runtime-data/plugins/
 
 # 2. Point Codex CLI at DeepSeek (official one-click script — choose deepseek-v4-flash)

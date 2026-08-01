@@ -40,7 +40,8 @@ instead (key stays in env, never on disk).
 Verify:
 
 ```bash
-codex exec "Reply with exactly: OK"     # banner must show model/provider: deepseek
+codex exec --skip-git-repo-check "Reply with exactly: OK"
+# banner must show model/provider: deepseek (--skip-git-repo-check needed outside a git repo)
 ```
 
 ⚠️ Windows sandbox bug: `--sandbox workspace-write` behaves read-only on
@@ -84,6 +85,7 @@ hermes chat -q "Reply with exactly: DS-RESP-OK" \
 ## Step 3 — Install this plugin
 
 ```bash
+# ZIP downloads extract to <repo>-main/ — rename or adjust the path
 cp -r hermes-codex-loop /path/to/hermes/runtime-data/plugins/
 # env: CODEX_BIN / HERMES_HOME / HERMES_ENV_FILE (all optional)
 ```
@@ -118,7 +120,21 @@ silently not install. Build with a pinned npx instead:
 npx -y -p typescript@5.8.3 tsc -p tsconfig.json
 ```
 
-Verify: `codex exec "list your MCP tools"` should show `hermes_team_*`.
+Verify the MCP server is configured correctly (do NOT test via `codex exec` —
+`codex exec` silently drops MCP tools, see the upstream-bug note below):
+
+```bash
+# 1. Config present?
+grep -A3 "hermes-team" ~/.codex/config.toml
+# 2. MCP server boots and lists tools:
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized"}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | \
+  node <abs-path>/codex-plus-hermes-team/dist/index.js | grep hermes_team_ask_agent
+```
+
+`hermes_team_ask_agent` works in **interactive Codex (TUI) sessions**; in
+`codex exec` it is dropped by an upstream bug (openai/codex#16685, #29857).
+Codex auto-falls back to the Athena `/hermes/ask` or direct Hermes CLI paths —
+the reverse-consult chain keeps working headless.
 
 ---
 

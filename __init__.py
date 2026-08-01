@@ -25,11 +25,21 @@ logger = logging.getLogger(__name__)
 # ── 配置（环境变量可覆盖，默认适配 Hermes 常见布局）──
 
 _HERMES_ENV = Path(os.environ.get("HERMES_HOME", "")) if os.environ.get("HERMES_HOME") else None
+
+
+def _home_dir() -> "Path | None":
+    """Path.home() with graceful degradation (no HOME/USERPROFILE → None)."""
+    try:
+        return Path.home()
+    except (RuntimeError, OSError):
+        return None
+
+
 _ENV_CANDIDATES = [
     p for p in [
         _HERMES_ENV / ".env" if _HERMES_ENV else None,
         Path(os.environ.get("HERMES_ENV_FILE", "")) if os.environ.get("HERMES_ENV_FILE") else None,
-        Path.home() / ".hermes" / ".env",
+        _home_dir() / ".hermes" / ".env" if _home_dir() else None,
         Path.cwd() / ".env",
     ] if p is not None
 ]

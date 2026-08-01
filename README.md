@@ -49,6 +49,39 @@ One picture, the whole architecture — every layer tested and verified end-to-e
 └──────────────────────────────────────────────────────────────┘
 ```
 
+**简体中文版**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                       第 1 层 · 主脑                       │
+│             Hermes Agent —— 记忆 · 人设 · 编排             │
+└────────────────────────────────────────────────────────────┘
+│  主循环（Responses API）       ▲ 反向咨询
+▼                               │
+┌────────────────────────────┐  ┌────────────────────────────┐
+│       第 2 层 · 模型       │  │    第 3a 层 · 反向咨询     │
+│     deepseek-responses     │  │ codex-plus-hermes-team MCP │
+│ api_mode: codex_responses  │  │   hermes_team_ask_agent    │
+│      api.deepseek.com      │  │    ask_panel · 看板任务    │
+│     1M 上下文 · 免梯子     │  └────────────────────────────┘
+└────────────────────────────┘  ▲
+│  派发                           │ hermes_team_*
+▼                               │
+┌────────────────────────────────────────────────────────────┐
+│                第 3b 层 · 执行体（本仓库）                 │
+│               codex 工具 → Codex CLI 0.146+                │
+│               DeepSeek 官方 models.json 适配               │
+│            apply_patch 原生 · 推理档位 · 免梯子            │
+└────────────────────────────────────────────────────────────┘
+│  会话产物
+▼
+┌────────────────────────────────────────────────────────────┐
+│                 第 4 层 · 工作区与上下文桥                 │
+│             Athena 后端 + MCP 桥（29 个工具）              │
+│             recall 缓存 · 会话总结 · 记忆读写              │
+└────────────────────────────────────────────────────────────┘
+```
+
 **The closed loop**: Hermes thinks on the native Responses API → dispatches to
 Codex → Codex executes with DeepSeek's official adaptation → Codex can consult
 Hermes back (layer 3a) → context survives sessions (layer 4).

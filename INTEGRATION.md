@@ -84,7 +84,7 @@ hermes chat -q "Reply with exactly: DS-RESP-OK" \
 ## Step 3 — Install this plugin
 
 ```bash
-cp -r hermes-codex-router /path/to/hermes/runtime-data/plugins/
+cp -r hermes-codex-loop /path/to/hermes/runtime-data/plugins/
 # env: CODEX_BIN / HERMES_HOME / HERMES_ENV_FILE (all optional)
 ```
 

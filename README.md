@@ -133,7 +133,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layer ownership details and
 
 ```bash
 # 1. Install the plugin into Hermes
-cp -r hermes-codex-router /path/to/hermes/runtime-data/plugins/
+cp -r hermes-codex-loop /path/to/hermes/runtime-data/plugins/
 
 # 2. Point Codex CLI at DeepSeek (official one-click script — choose deepseek-v4-flash)
 #    Windows:  irm https://cdn.deepseek.com/api-docs/codex-deepseek-setup-en.ps1 | iex
@@ -159,7 +159,7 @@ follow [INTEGRATION.md](INTEGRATION.md) — it's the exact tested path.
 ## Repository layout
 
 ```text
-hermes-codex-router/
+hermes-codex-loop/
 ├── __init__.py                 # the plugin: `codex` tool + guidance + delegate injection
 ├── README.md                   # you are here
 ├── ARCHITECTURE.md             # four-layer closed-loop diagram

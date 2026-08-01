@@ -42,11 +42,31 @@ class CodexRouterTests(unittest.TestCase):
         self.assertIn("pro", schema["parameters"]["properties"]["model"]["enum"])
 
     def test_missing_key_returns_error(self):
-        # Force no key available in any candidate
-        self.mod._ENV_CANDIDATES = []
-        result = json.loads(self.mod._codex_handler({"task": "do something"}))
-        self.assertIn("error", result)
-        self.assertIn("DEEPSEEK_API_KEY", result["error"])
+        # bin present, key absent → key error
+        mod = self.mod
+        mod._ENV_CANDIDATES = []
+        orig_find, orig_key = mod._find_codex, mod._get_api_key
+        mod._find_codex = lambda: "codex"
+        mod._get_api_key = lambda: ""
+        try:
+            result = json.loads(mod._codex_handler({"task": "do something"}))
+            self.assertIn("error", result)
+            self.assertIn("DEEPSEEK_API_KEY", result["error"])
+        finally:
+            mod._find_codex, mod._get_api_key = orig_find, orig_key
+
+    def test_missing_bin_returns_error(self):
+        # key present, bin absent → bin error
+        mod = self.mod
+        orig_find, orig_key = mod._find_codex, mod._get_api_key
+        mod._find_codex = lambda: ""
+        mod._get_api_key = lambda: "sk-test"
+        try:
+            result = json.loads(mod._codex_handler({"task": "do something"}))
+            self.assertIn("error", result)
+            self.assertIn("codex CLI", result["error"])
+        finally:
+            mod._find_codex, mod._get_api_key = orig_find, orig_key
 
     def test_missing_task_returns_error(self):
         result = json.loads(self.mod._codex_handler({}))

@@ -1,3 +1,18 @@
+"""
+codex-router — Hermes → Codex CLI 集成插件。
+
+与 deepseek-router（opencode）平行：codex 成为 Hermes 一等公民工具。
+保留 opencode 集成不动；本插件让 codex 作为第二编码执行体可用。
+
+核心事实（2026-08-01 实测）：
+- Codex 0.146 + DeepSeek V4 Flash 官方 provider（Responses API 原生适配）
+- api.deepseek.com 国内直连，不需要梯子
+- Windows 上 --sandbox workspace-write 有 bug（0.145/0.146 均表现为只读）
+  → 用 --dangerously-bypass-approvals-and-sandbox（受控目录 + 单机可接受）
+- ~/.codex/config.toml 已配好 [model_providers.deepseek] + models.json
+"""
+
+from __future__ import annotations
 import json
 import logging
 import os
@@ -70,17 +85,25 @@ CODEX_TOOL_SCHEMA = {
 }
 
 SESSION_GUIDANCE = """
-## Codex 编码工具（备选执行体）
+## Codex 编码工具（首选执行体）
 
-你有一个 `codex` 工具（Codex CLI + DeepSeek V4 Flash 官方适配）。
-使用场景：
-- opencode 不可用 / 需要 Responses API 原生适配时
-- 复杂 agent 任务（multi-agent、1M context、apply_patch 原生格式）
+你有一个 `codex` 工具（Codex CLI + DeepSeek V4 Flash 官方适配），这是你写代码的**首选方式**。
 
-**分工：**
-- 日常编码：opencode（免费）优先
-- 协议敏感任务 / opencode 翻车时：codex（flash，DeepSeek 官方 API）
-- 复杂/架构/审查：codex model="pro"
+**什么时候用 codex（硬规则）：**
+- 任何写新代码、新功能、重构、跨文件修改、修 bug 需要读多个文件的场景 → 优先 codex
+- 写测试、跑测试验证 → codex
+- 代码审查 → codex（model="pro"）
+- opencode 仅作为兜底：codex 不可用/报错/超时 时才考虑
+
+**什么时候用自己的工具（保持）：**
+- 读文件 → read_file
+- 单行修补、改配置 → patch（一行能解决的不用派 codex）
+- 跑单条命令 → terminal
+- 调研、查资料 → web_search / delegate_task
+
+**模型选择：**
+- 日常开发：model="flash" → deepseek-v4-flash
+- 复杂/架构/审查：model="pro" → deepseek-v4-pro
 
 **注意事项：**
 - codex 需要 git 仓库目录（非 git 目录会拒绝执行）
@@ -208,11 +231,10 @@ def _inject_session_guidance(**kwargs):
 
 _CODEX_CONTEXT_INJECTION = """
 
-## 执行指令（自动注入·备选执行体）
-编码任务优先用 OpenCode CLI（免费）：opencode run '<任务>' --model opencode/deepseek-v4-flash-free --auto
-当 opencode 不可用、报错、或任务需要 Responses API 原生适配（复杂 agent 行为、1M context、apply_patch 原生格式）时，
-改用 Codex CLI（DeepSeek 官方 API，key 已注入环境）：
+## 执行指令（自动注入·首选执行体）
+编码任务优先用 Codex CLI（DeepSeek 官方 API，key 已注入环境）：
   codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox '<任务>'
+codex 不可用/报错/超时 时，再用 OpenCode CLI 兜底：opencode run '<任务>' --model opencode/deepseek-v4-flash-free --auto
 执行后用 git diff 验证改动，跑测试确认通过，报告真实输出。
 """
 
@@ -221,26 +243,6 @@ _CODING_KEYWORDS = [
     "modify", "update", "delete", "remove", "rename", "build",
     "编码", "写", "创建", "修改", "修复", "重构",
 ]
-
-
-# ── 入口 ──
-
-
-def register(ctx):
-    """Hermes 插件入口。"""
-    ctx.register_tool(
-        name="codex",
-        toolset="codex",
-        schema=CODEX_TOOL_SCHEMA,
-        handler=_codex_handler,
-        check_fn=lambda: bool(_find_codex() and _get_api_key()),
-        requires_env=[],
-        description="Codex 编码工具（备选执行体）— DeepSeek V4 Flash 官方 Responses API 适配",
-        emoji="🐙",
-    )
-    ctx.register_hook("pre_session_init", _inject_session_guidance)
-    ctx.register_hook("pre_tool_call", _pre_tool_call_hook)
-    logger.info("codex-router loaded (tool + guidance + context injection)")
 
 
 def _is_coding_task(goal: str) -> bool:
@@ -271,3 +273,23 @@ def _pre_tool_call_hook(tool_name: str, args: dict, **kwargs):
                 logger.info("codex context injected for: %s", goal[:60])
 
     return None
+
+
+# ── 入口 ──
+
+
+def register(ctx):
+    """Hermes 插件入口。"""
+    ctx.register_tool(
+        name="codex",
+        toolset="codex",
+        schema=CODEX_TOOL_SCHEMA,
+        handler=_codex_handler,
+        check_fn=lambda: bool(_find_codex() and _get_api_key()),
+        requires_env=[],
+        description="Codex 编码工具（备选执行体）— DeepSeek V4 Flash 官方 Responses API 适配",
+        emoji="🐙",
+    )
+    ctx.register_hook("pre_session_init", _inject_session_guidance)
+    ctx.register_hook("pre_tool_call", _pre_tool_call_hook)
+    logger.info("codex-router loaded (tool + guidance + context injection)")

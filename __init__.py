@@ -17,7 +17,9 @@ import json
 import logging
 import os
 import shutil
+import signal
 import subprocess
+import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -60,9 +62,8 @@ _KEY_VAR = "DEEPSEEK_API_KEY"
 CODEX_TOOL_SCHEMA = {
     "name": "codex",
     "description": (
-        "编码工具（备选执行体）——用 Codex CLI 执行编码任务，走 DeepSeek V4 Flash 官方 Responses API。"
-        "当 opencode 不可用或需要 Codex 协议层适配（Responses API、multi-agent v2、1M context）时使用。"
-        "日常编码优先用 opencode（免费）；codex 是官方深度适配路径，flash 默认，pro 选复杂任务。"
+        "编码工具（首选执行体）——用 Codex CLI 执行编码任务，走 DeepSeek V4 Flash 官方 Responses API。"
+        "日常编码优先用 codex；复杂/架构/审查用 pro。opencode 仅作兜底。"
     ),
     "parameters": {
         "type": "object",
@@ -152,6 +153,59 @@ def _find_codex() -> str:
 # ── 工具 handler ──
 
 
+def _resolve_codex_js(codex_bin: str) -> str:
+    """把 codex.cmd/.bat 解析为真正的 JS 入口（node_modules/@openai/codex/bin/codex.js）。
+
+    Windows 上直接用 subprocess 跑 .cmd 会多一层 cmd.exe 壳：timeout 后
+    kill() 只杀壳，node 子进程残留并持有 stdout 管道，communicate() 无限
+    阻塞（实测 600s 超时拖到 851s 才返回）。绕过壳、node 直调 JS 入口后
+    kill 可直达 node 进程。
+    """
+    if not (codex_bin.endswith(".cmd") or codex_bin.endswith(".bat")):
+        return ""
+    d = os.path.dirname(os.path.abspath(codex_bin))
+    js = os.path.join(d, "..", "@openai", "codex", "bin", "codex.js")
+    return os.path.abspath(js) if os.path.exists(js) else ""
+
+
+def _build_codex_cmd(codex_bin: str, model: str, task: str) -> list:
+    base = [
+        "exec",
+        "--skip-git-repo-check",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--model", model,
+        task,
+    ]
+    js = _resolve_codex_js(codex_bin)
+    node = shutil.which("node")
+    if js and node:
+        return [node, js] + base
+    return [codex_bin] + base
+
+
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """杀掉整个进程树，避免 communicate() 无超时阻塞。
+
+    Windows: taskkill /T /F（树杀）；POSIX: killpg(SIGKILL)。
+    """
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                capture_output=True, text=True, timeout=15,
+            )
+        else:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                proc.kill()
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
 def _codex_handler(args: dict, **kwargs) -> str:
     task = (args.get("task") or "").strip()
     if not task:
@@ -170,42 +224,55 @@ def _codex_handler(args: dict, **kwargs) -> str:
         return json.dumps({"error": f"缺少 {_KEY_VAR}（环境变量或 Hermes .env）"})
 
     model = _PRO_MODEL if model_choice == "pro" else _DEFAULT_MODEL
+    timeout = float(os.environ.get("CODEX_TIMEOUT", "600"))
 
-    cmd = [
-        codex_bin,
-        "exec",
-        "--skip-git-repo-check",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--model", model,
-        task,
-    ]
+    cmd = _build_codex_cmd(codex_bin, model, task)
     env = os.environ.copy()
     env[_KEY_VAR] = api_key
 
+    t0 = time.monotonic()
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdin=subprocess.DEVNULL,  # codex 无需 stdin；继承管道会让它等待输入而卡死
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=600,
+            encoding="utf-8",
+            errors="replace",
             cwd=directory,
             env=env,
         )
-    except subprocess.TimeoutExpired:
-        return json.dumps({"status": "timeout", "error": "执行超时（10 分钟）"})
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            # 超时：杀进程树（而非 subprocess.run 的 kill 壳+无限 communicate）
+            _kill_tree(proc)
+            try:
+                stdout, stderr = proc.communicate(timeout=20)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                stdout, stderr = proc.communicate()
+            return json.dumps({
+                "status": "timeout",
+                "error": f"执行超时（{int(timeout)} 秒），已强制终止进程树——任务可能未完成",
+                "elapsed_s": round(time.monotonic() - t0, 1),
+                "output": ((stdout or "") + "\n" + (stderr or "")).strip()[-2000:],
+            })
     except Exception as e:
         return json.dumps({"status": "error", "error": f"执行失败: {e}"})
 
-    output = (result.stdout or "") + ("\n" + result.stderr if result.stderr else "")
+    output = (stdout or "") + ("\n" + stderr if stderr else "")
     text = output.strip()
 
     response = {
-        "status": "ok" if result.returncode == 0 else "error",
+        "status": "ok" if proc.returncode == 0 else "error",
         "model": model,
+        "elapsed_s": round(time.monotonic() - t0, 1),
         "output": text[-5000:],
     }
-    if result.stderr:
-        response["stderr"] = result.stderr[-1000:]
+    if stderr:
+        response["stderr"] = stderr[-1000:]
 
     if verify:
         try:

@@ -131,6 +131,12 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layer ownership details and
 > Full stack takes ~10 minutes following [INTEGRATION.md](INTEGRATION.md).
 > Plugin-only is ~2 minutes if Codex + DeepSeek are already configured.
 
+**Step 0 — health check (recommended):**
+
+```bash
+bash scripts/check-setup.sh   # ✅ all green → proceed; ❌ tells you exactly what's missing
+```
+
 ```bash
 # 1. Install the plugin into Hermes
 cp -r hermes-codex-loop /path/to/hermes/runtime-data/plugins/

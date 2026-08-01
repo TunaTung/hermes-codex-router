@@ -13,8 +13,51 @@
 
 ---
 
+## The stack at a glance
+
+One picture, the whole architecture — every layer tested and verified end-to-end:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                  LAYER 1 · MAIN BRAIN                         │
+│        Hermes Agent — memory, persona, orchestration          │
+└──────────────────────────────────────────────────────────────┘
+        │  main loop (Responses API)           ▲ reverse consult
+        ▼                                      │
+┌────────────────────────┐      ┌───────────────────────────────┐
+│  LAYER 2 · MODEL       │      │  LAYER 3a · REVERSE CONSULT   │
+│  deepseek-responses    │      │  codex-plus-hermes-team MCP   │
+│  api_mode:             │      │  hermes_team_ask_agent        │
+│    codex_responses     │      │  ask_panel · kanban tasks     │
+│  api.deepseek.com      │      └───────────────────────────────┘
+│  1M context · no VPN   │                   ▲
+└────────────────────────┘                   │ hermes_team_*
+        │  dispatch                          │
+        ▼                                    │
+┌──────────────────────────────────────────────────────────────┐
+│  LAYER 3b · EXECUTION TOOL (this repo)                       │
+│  codex tool → Codex CLI 0.146+                               │
+│  DeepSeek official models.json adapter                       │
+│  apply_patch native · effort levels · no VPN                 │
+└──────────────────────────────────────────────────────────────┘
+        │  session artifacts
+        ▼
+┌──────────────────────────────────────────────────────────────┐
+│  LAYER 4 · WORKSPACE & CONTEXT BRIDGE                        │
+│  Athena backend + MCP bridge (29 tools)                      │
+│  recall cache · session summaries · memory read/write        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**The closed loop**: Hermes thinks on the native Responses API → dispatches to
+Codex → Codex executes with DeepSeek's official adaptation → Codex can consult
+Hermes back (layer 3a) → context survives sessions (layer 4).
+
+---
+
 ## Table of Contents
 
+- [The stack at a glance](#the-stack-at-a-glance)
 - [What this is](#what-this-is)
 - [Quick Start](#quick-start)
 - [Repository layout](#repository-layout)
@@ -29,7 +72,7 @@
 ## What this is
 
 This is **not just a plugin** — it is the assembled, tested recipe for the full
-Hermes ↔ Codex closed loop:
+Hermes ↔ Codex closed loop (see the diagram above):
 
 1. **Hermes thinks** over DeepSeek's native Responses API (`deepseek-responses` provider, 1M context)
 2. **Hermes dispatches** to Codex through the `codex` tool (this repo's plugin)
@@ -37,17 +80,7 @@ Hermes ↔ Codex closed loop:
 4. **Codex consults Hermes back** via codex-plus-hermes-team MCP (`hermes_team_ask_agent`)
 5. **Context survives sessions** via Athena recall & session summaries
 
-```
-You
-  └─> Hermes (main brain: memory, persona, orchestration)
-        ├─> deepseek-responses provider ── api.deepseek.com/v1/responses   (main loop)
-        ├─> codex tool (this repo) ── Codex CLI 0.146+ ── DeepSeek official
-        └─> Athena MCP bridge ── recall / sessions / memory (29 tools)
-              ▲
-              └─ codex-plus-hermes-team MCP ── Codex asks Hermes back
-```
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the four-layer diagram and
+See [ARCHITECTURE.md](ARCHITECTURE.md) for layer ownership details and
 [INTEGRATION.md](INTEGRATION.md) for the step-by-step assembly guide
 (every step verified on Windows 11).
 

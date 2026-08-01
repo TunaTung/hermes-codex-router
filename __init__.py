@@ -1,8 +1,7 @@
 """
 codex-router — Hermes → Codex CLI 集成插件。
 
-与 deepseek-router（opencode）平行：codex 成为 Hermes 一等公民工具。
-保留 opencode 集成不动；本插件让 codex 作为第二编码执行体可用。
+codex 是 Hermes 唯一的编码执行体（opencode 已于 2026-08-01 弃用归档）。
 
 核心事实（2026-08-01 实测）：
 - Codex 0.146 + DeepSeek V4 Flash 官方 provider（Responses API 原生适配）
@@ -63,7 +62,7 @@ CODEX_TOOL_SCHEMA = {
     "name": "codex",
     "description": (
         "编码工具（首选执行体）——用 Codex CLI 执行编码任务，走 DeepSeek V4 Flash 官方 Responses API。"
-        "日常编码优先用 codex；复杂/架构/审查用 pro。opencode 仅作兜底。"
+        "日常编码优先用 codex；复杂/架构/审查用 pro。"
     ),
     "parameters": {
         "type": "object",
@@ -101,10 +100,9 @@ SESSION_GUIDANCE = """
 你有一个 `codex` 工具（Codex CLI + DeepSeek V4 Flash 官方适配），这是你写代码的**首选方式**。
 
 **什么时候用 codex（硬规则）：**
-- 任何写新代码、新功能、重构、跨文件修改、修 bug 需要读多个文件的场景 → 优先 codex
+- 任何写新代码、新功能、重构、跨文件修改、修 bug 需要读多个文件的场景 → codex
 - 写测试、跑测试验证 → codex
 - 代码审查 → codex（model="pro"）
-- opencode 仅作为兜底：codex 不可用/报错/超时 时才考虑
 
 **什么时候用自己的工具（保持）：**
 - 读文件 → read_file
@@ -287,31 +285,13 @@ def _codex_handler(args: dict, **kwargs) -> str:
     return json.dumps(response, ensure_ascii=False)
 
 
-# ── pre_session_init hook：注入引导规则（与 opencode 引导并存）──
-
-
-def _inject_session_guidance(**kwargs):
-    agent = kwargs.get("agent")
-    if agent is None:
-        return
-    if hasattr(agent, "valid_tool_names") and "codex" in agent.valid_tool_names:
-        if not hasattr(agent, "_codex_guidance_injected"):
-            if hasattr(agent, "extra_system_prompt"):
-                agent.extra_system_prompt = (
-                    (agent.extra_system_prompt or "") + "\n\n" + SESSION_GUIDANCE
-                )
-                agent._codex_guidance_injected = True
-                logger.info("codex guidance injected into system prompt")
-
-
-# ── pre_tool_call hook：编码类 delegate_task 注入 codex 指令（备选执行体声明）──
+# ── pre_tool_call hook：编码类 delegate_task 注入 codex 指令 ──
 
 _CODEX_CONTEXT_INJECTION = """
 
-## 执行指令（自动注入·首选执行体）
-编码任务优先用 Codex CLI（DeepSeek 官方 API，key 已注入环境）：
+## 执行指令（自动注入）
+编码任务用 Codex CLI（DeepSeek 官方 API，key 已注入环境）：
   codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox '<任务>'
-codex 不可用/报错/超时 时，再用 OpenCode CLI 兜底：opencode run '<任务>' --model opencode/deepseek-v4-flash-free --auto
 执行后用 git diff 验证改动，跑测试确认通过，报告真实输出。
 """
 

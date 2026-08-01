@@ -153,7 +153,7 @@ def _codex_handler(args: dict, **kwargs) -> str:
 
     codex_bin = _find_codex()
     if not codex_bin:
-        return json.dumps({"error": "codex CLI 未找到（D:/Agent/codex 或 PATH）"})
+        return json.dumps({"error": "codex CLI 未找到：set CODEX_BIN or add codex to PATH"})
 
     api_key = _get_api_key()
     if not api_key:

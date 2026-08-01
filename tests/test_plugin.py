@@ -68,6 +68,19 @@ class CodexRouterTests(unittest.TestCase):
         finally:
             mod._find_codex, mod._get_api_key = orig_find, orig_key
 
+    def test_error_message_is_actionable(self):
+        # bin absent → error must include the CODEX_BIN fix hint
+        mod = self.mod
+        orig_find, orig_key = mod._find_codex, mod._get_api_key
+        mod._find_codex = lambda: ""
+        mod._get_api_key = lambda: "sk-test"
+        try:
+            result = json.loads(mod._codex_handler({"task": "do something"}))
+            self.assertIn("error", result)
+            self.assertIn("CODEX_BIN", result["error"])
+        finally:
+            mod._find_codex, mod._get_api_key = orig_find, orig_key
+
     def test_missing_task_returns_error(self):
         result = json.loads(self.mod._codex_handler({}))
         self.assertEqual(result["error"], "task is required")

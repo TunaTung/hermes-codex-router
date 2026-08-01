@@ -18,6 +18,7 @@ import os
 import shutil
 import signal
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -229,36 +230,58 @@ def _codex_handler(args: dict, **kwargs) -> str:
     env[_KEY_VAR] = api_key
 
     t0 = time.monotonic()
+    out_fd, out_path = tempfile.mkstemp(prefix="codex-out-", suffix=".txt")
+    err_fd, err_path = tempfile.mkstemp(prefix="codex-err-", suffix=".txt")
     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdin=subprocess.DEVNULL,  # codex 无需 stdin；继承管道会让它等待输入而卡死
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            cwd=directory,
-            env=env,
-        )
         try:
-            stdout, stderr = proc.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            # 超时：杀进程树（而非 subprocess.run 的 kill 壳+无限 communicate）
-            _kill_tree(proc)
+            # stdout/stderr 重定向到临时文件而非 PIPE：
+            # codex 在 git 仓库内运行时会 spawn git 子进程，主进程退出后
+            # git 残留仍持有管道句柄 → communicate() 等 EOF 会无限阻塞
+            # （实测 18s 的任务被拖到 593s）。文件方案无 EOF 依赖，
+            # 主进程退出即返回，残留进程无法阻塞回传。
+            with open(out_fd, "wb", closefd=True) as outf, \
+                 open(err_fd, "wb", closefd=True) as errf:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.DEVNULL,
+                    stdout=outf,
+                    stderr=errf,
+                    cwd=directory,
+                    env=env,
+                )
+                try:
+                    proc.communicate(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    # 超时：杀进程树（而非 subprocess.run 的 kill 壳+无限 communicate）
+                    _kill_tree(proc)
+                    try:
+                        proc.communicate(timeout=20)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        proc.communicate()
+                    with open(out_path, "rb") as f:
+                        out_data = f.read().decode("utf-8", errors="replace")
+                    with open(err_path, "rb") as f:
+                        err_data = f.read().decode("utf-8", errors="replace")
+                    return json.dumps({
+                        "status": "timeout",
+                        "error": f"执行超时（{int(timeout)} 秒），已强制终止进程树——任务可能未完成",
+                        "elapsed_s": round(time.monotonic() - t0, 1),
+                        "output": ((out_data or "") + "\n" + (err_data or "")).strip()[-2000:],
+                    })
+        except Exception as e:
+            return json.dumps({"status": "error", "error": f"执行失败: {e}"})
+
+        with open(out_path, "rb") as f:
+            stdout = f.read().decode("utf-8", errors="replace")
+        with open(err_path, "rb") as f:
+            stderr = f.read().decode("utf-8", errors="replace")
+    finally:
+        for p in (out_path, err_path):
             try:
-                stdout, stderr = proc.communicate(timeout=20)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                stdout, stderr = proc.communicate()
-            return json.dumps({
-                "status": "timeout",
-                "error": f"执行超时（{int(timeout)} 秒），已强制终止进程树——任务可能未完成",
-                "elapsed_s": round(time.monotonic() - t0, 1),
-                "output": ((stdout or "") + "\n" + (stderr or "")).strip()[-2000:],
-            })
-    except Exception as e:
-        return json.dumps({"status": "error", "error": f"执行失败: {e}"})
+                os.unlink(p)
+            except OSError:
+                pass
 
     output = (stdout or "") + ("\n" + stderr if stderr else "")
     text = output.strip()

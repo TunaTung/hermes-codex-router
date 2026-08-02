@@ -104,6 +104,29 @@ class CodexRouterTests(unittest.TestCase):
         self.mod._pre_tool_call_hook("read_file", args)
         self.assertEqual(args["goal"], "whatever")
 
+    def test_delegate_injection_mentions_self_decomposition(self):
+        # 拆解分工约束（2026-08-02）必须随 delegate 注入生效
+        self.assertIn("自行拆解", self.mod._CODEX_CONTEXT_INJECTION)
+        self.assertIn("先列执行计划", self.mod._CODEX_CONTEXT_INJECTION)
+
+    def test_check_directory_ok(self):
+        self.assertEqual(self.mod._check_directory(os.getcwd()), "")
+
+    def test_check_directory_blocks_system(self):
+        err = self.mod._check_directory("C:/Windows")
+        self.assertIn("拒绝", err)
+        self.assertIn("Windows", err)
+
+    def test_check_directory_missing(self):
+        err = self.mod._check_directory("C:/definitely/not/a/real/dir")
+        self.assertIn("不存在", err)
+
+    def test_handler_rejects_system_directory(self):
+        # handler 层：目录校验失败 → 错误 JSON，不 spawn codex
+        result = json.loads(self.mod._codex_handler({"task": "x", "directory": "C:/Windows"}))
+        self.assertIn("error", result)
+        self.assertIn("拒绝", result["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

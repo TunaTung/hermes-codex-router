@@ -138,6 +138,40 @@ def _get_api_key() -> str:
     return ""
 
 
+_BLOCKED_DIR_PREFIXES = (
+    "c:\\windows",
+    "c:\\program files",
+    "c:\\programdata",
+    "c:\\$recycle.bin",
+    "c:\\system volume information",
+    "c:\\users\\default",
+    "c:\\users\\public",
+    "c:\\windows.old",
+)
+
+
+def _check_directory(directory: str) -> str:
+    """目录安全校验：codex 以 --dangerously-bypass 运行（Windows 沙箱只读 bug 的
+    绕行），必须确保工作目录不是系统关键路径。拒绝返回错误信息，通过返回空串。
+    CODEX_ALLOWED_DIRS（分号分隔）可追加额外允许前缀。"""
+    try:
+        d = os.path.abspath(directory)
+    except Exception as exc:  # noqa: BLE001
+        return f"目录路径无效：{directory}（{exc}）"
+    if not os.path.isdir(d):
+        return f"目录不存在：{d}"
+    low = d.lower()
+    for prefix in _BLOCKED_DIR_PREFIXES:
+        if low == prefix or low.startswith(prefix + os.sep):
+            return f"拒绝在系统目录执行 codex（--dangerously-bypass 边界）：{d}"
+    extra = os.environ.get("CODEX_ALLOWED_DIRS", "")
+    if extra:
+        allowed = [p.strip().lower() for p in extra.split(";") if p.strip()]
+        if allowed and not any(low == a or low.startswith(a.rstrip(os.sep) + os.sep) for a in allowed):
+            return f"目录不在 CODEX_ALLOWED_DIRS 白名单内：{d}"
+    return ""
+
+
 def _find_codex() -> str:
     for c in _CODEX_CANDIDATES:
         if c == "codex":
@@ -213,6 +247,10 @@ def _codex_handler(args: dict, **kwargs) -> str:
     model_choice = (args.get("model") or "flash").strip()
     directory = (args.get("directory") or "").strip() or os.getcwd()
     verify = args.get("verify", True)
+
+    dir_err = _check_directory(directory)
+    if dir_err:
+        return json.dumps({"error": dir_err})
 
     codex_bin = _find_codex()
     if not codex_bin:

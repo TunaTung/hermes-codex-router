@@ -199,7 +199,7 @@ hermes-codex-loop/
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `task` | string | — | What to build/fix/refactor. Be specific: files, expected behavior, constraints. |
-| `model` | `flash` \| `pro` | `flash` | `flash` → `deepseek-v4-flash`, `pro` → `deepseek-v4-pro` |
+| `model` | `flash` \| `pro` | `flash` | `flash` → `deepseek-v4-flash`；`pro` → `deepseek-v4-pro`（**暂不可用**：官方 Codex 集成 2026 年 8 月初开放，当前返回 invalid_request_error） |
 | `directory` | string | cwd | Working directory (should be a git repo) |
 | `verify` | bool | `true` | Runs `git diff --stat` after execution |
 
